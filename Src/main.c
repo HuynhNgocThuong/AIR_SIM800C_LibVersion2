@@ -19,6 +19,7 @@ UART_HandleTypeDef huart3;
 #define false 0
 #define bool int
 	int i, n=10;
+int *a;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
