@@ -29,7 +29,79 @@ struct dataGPRS_t dataGPRS;
 struct dataSMS_t dataSMS;
 struct UARTSim_t UARTSim;
 struct dataCALL_t dataCALL;
-
+/**
+  * @brief  Interrupt callback routine
+	* @param  huart UART handle
+	*            
+	* @note
+  * @retval None
+  */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)  
+{
+	//Check UART of Module SIM
+    if (huart->Instance == USART1){
+			//Check character had received via UART3
+			//If it isn't special character
+	if (UARTSim.Rx_data[0] >= 32 && UARTSim.Rx_data[0] <= 126) {		
+     UARTSim.Rx_temp[UARTSim.Rx_indx++] = UARTSim.Rx_data[0];
+   }
+		//If it's special character
+		//Check variable flagSMS 
+	 else{
+		 //dataSMS.readSMS = 1
+		if(UARTSim.Rx_data[0] == 13 && dataSMS.readSMS){
+		UARTSim.Rx_temp[UARTSim.Rx_indx++] = UARTSim.Rx_data[0];
+				//CALL
+				if(strstr(UARTSim.Rx_temp,"RING")){
+				printf("%s",UARTSim.Rx_temp);
+				//SIM_sendCommand("ATH");
+				SIM_Delete_Reply();
+				dataSMS.count_Sc = 0;
+				}
+//				if(strstr(UARTSim.Rx_temp,"ATH\r\rOK\r")){
+//				SIM_Delete_Reply();
+//				dataSMS.count_Sc = 0;
+//				}
+				else{
+				dataSMS.count_Sc++;
+				if(dataSMS.count_Sc == 2){ 
+				dataSMS.count_Sc = 0;
+				//SMS
+				//Coppy current buf to sms buf for processing
+				for(int i = 0; i< strlen(UARTSim.Rx_temp); i++) dataSMS.sms_buffer[i] = UARTSim.Rx_temp[i];
+				SIM_Delete_Reply();
+				UARTSim.Rx_indx = 0;
+				printf("%s\r\n",dataSMS.sms_buffer);
+				//Coppy current buf to sms buf for processing	
+			}
+				}
+		}
+		//dataSMS.readSMS = 0
+		//Response Command with OK
+    if ((UARTSim.Rx_data[0] == 13 || UARTSim.Rx_data[0] == 10) && !dataSMS.readSMS){
+				UARTSim.Rx_temp[UARTSim.Rx_indx++] = UARTSim.Rx_data[0];
+	 
+		}
+	 }	
+	  //Reponse Command without OK 
+		if(UARTSim.Rx_Flagres == 0){	 
+	 		if((indexOf(UARTSim.Rx_temp,"+FTPPUT: 1,61\r\n")||indexOf(UARTSim.Rx_temp,"+HTTPACTION: 0,200,9\r\n")) && !dataSMS.readSMS){
+			for(int i = 0; i < strlen(UARTSim.Rx_temp); i++) dataGPRS.reply[i] = UARTSim.Rx_temp[i];	
+			SIM_Delete_Reply();
+			UARTSim.Rx_indx = 0;
+			}
+		}
+			if(UARTSim.Rx_Flagres == 1){
+			if((indexOf(UARTSim.Rx_temp, UARTSim.Response_ex)) && !dataSMS.readSMS){
+			for(int i = 0; i < strlen(UARTSim.Rx_temp); i++) dataGPRS.reply[i] = UARTSim.Rx_temp[i];	
+			SIM_Delete_Reply();
+			UARTSim.Rx_Flagres = 0;
+			UARTSim.Rx_indx = 0;
+			}
+		}
+   HAL_UART_Receive_IT(&huart1,(uint8_t *)UARTSim.Rx_data, 1); 		
+				}
+   }
 /**
   * @brief  Check character in string
 	* @param  String: Current string
